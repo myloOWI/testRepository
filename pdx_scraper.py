@@ -1,5 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
+import json
+import re
 
 
 def fetch_car_details(url: str) -> dict:
@@ -56,6 +59,65 @@ def fetch_car_details(url: str) -> dict:
         result['description'] = description['content']
 
     return result
+
+
+def _slugify(value: str) -> str:
+    """Converts text into a slug suitable for URLs."""
+    value = value.lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    value = re.sub(r"-+", "-", value)
+    return value.strip("-")
+
+
+def fetch_inventory_links(base_url: str = "https://www.pdxmotors.com/inventory/") -> list[str]:
+    """Returns a list of vehicle detail page URLs from the inventory."""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/114.0 Safari/537.36",
+    }
+    response = requests.get(base_url, headers=headers, timeout=10)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    script = soup.find("script", src=re.compile(r"/inv-scripts-v2/inv/vehicles"))
+    if not script or not script.get("src"):
+        raise ValueError("Inventory script not found")
+
+    src_url = urljoin(base_url, script["src"])
+    parsed = urlparse(src_url)
+    query = parse_qs(parsed.query)
+
+    def fetch_page(page_num: int) -> dict:
+        q = query.copy()
+        q["pn"] = [str(page_num)]
+        page_url = urlunparse(parsed._replace(query=urlencode(q, doseq=True)))
+        r = requests.get(page_url, headers=headers, timeout=10)
+        r.raise_for_status()
+        m = re.search(r"\((\{.*\})\)", r.text)
+        if not m:
+            raise ValueError("Unexpected inventory response")
+        return json.loads(m.group(1))
+
+    first_page = fetch_page(0)
+    vehicles = list(first_page["Vehicles"])
+    total = first_page["TotalRecordCount"]
+    per_page = len(first_page["Vehicles"])
+    pages = (total + per_page - 1) // per_page
+
+    for pn in range(1, pages):
+        data = fetch_page(pn)
+        vehicles.extend(data.get("Vehicles", []))
+
+    links = []
+    for v in vehicles:
+        make_slug = _slugify(v["Make"])
+        model_slug = _slugify(v["Model"])
+        stock = v["StockNumber"]
+        links.append(
+            f"https://www.pdxmotors.com/inventory/{make_slug}/{model_slug}/{stock}/"
+        )
+
+    return links
 
 
 def main():
