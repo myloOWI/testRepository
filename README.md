@@ -13,5 +13,5 @@ pip install -r requirements.txt
 Run the test suite:
 
 ```bash
-python3 -m unittest
+python3 -m unittest discover tests
 ```
