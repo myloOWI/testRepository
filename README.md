@@ -21,6 +21,8 @@ Install dependencies:
 
 ```bash
 pip install -r requirements.txt
+pip install -r requirements.playwright.txt  # needed for Playwright
+playwright install
 ```
 
 Run the test suite:
@@ -41,4 +43,21 @@ Running the image will automatically download the full inventory from the PDX Mo
 
 ```bash
 docker run --rm pdx-scraper:latest
+```
+
+### Playwright option
+
+You can alternatively scrape using Playwright. Install the extra dependency and browsers, then run the dedicated script:
+
+```bash
+pip install -r requirements.playwright.txt
+playwright install
+python scrape_inventory_playwright.py
+```
+
+To containerize this approach, build and run the image defined in `Dockerfile.playwright`:
+
+```bash
+docker build -f Dockerfile.playwright -t pdx-scraper-playwright:latest .
+docker run --rm pdx-scraper-playwright:latest
 ```
