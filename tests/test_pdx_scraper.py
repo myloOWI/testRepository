@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+import requests
 from pathlib import Path
 
 import pdx_scraper
@@ -17,6 +18,30 @@ class MockResponse:
 
     def raise_for_status(self):
         pass
+
+
+class MockErrorResponse:
+    def __init__(self, status_code=404):
+        self.text = ""
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        raise requests.HTTPError(f"{self.status_code} Error")
+
+
+def load_inventory_html():
+    path = Path(__file__).parent / 'sample_inventory.html'
+    return path.read_text()
+
+
+def load_inventory_page0():
+    path = Path(__file__).parent / 'sample_inventory_page0.jsonp'
+    return path.read_text()
+
+
+def load_inventory_page1():
+    path = Path(__file__).parent / 'sample_inventory_page1.jsonp'
+    return path.read_text()
 
 
 class PdxScraperTests(unittest.TestCase):
@@ -37,6 +62,42 @@ class PdxScraperTests(unittest.TestCase):
             'description': 'This Ferrari is awesome',
         }
         self.assertEqual(data, expected)
+
+    def test_fetch_car_details_http_error(self):
+        with patch('requests.get', return_value=MockErrorResponse()):
+            data = pdx_scraper.fetch_car_details('https://example.com/missing')
+
+        self.assertEqual(data, {})
+
+    def test_fetch_car_details_network_error(self):
+        with patch('requests.get', side_effect=requests.RequestException("boom")):
+            data = pdx_scraper.fetch_car_details('https://example.com/error')
+
+        self.assertEqual(data, {})
+
+    def test_fetch_inventory_links(self):
+        html = load_inventory_html()
+        page0 = load_inventory_page0()
+        page1 = load_inventory_page1()
+
+        def mock_get(url, headers=None, timeout=10):
+            if url == 'https://www.pdxmotors.com/inventory/':
+                return MockResponse(html)
+            elif 'pn=0' in url:
+                return MockResponse(page0)
+            elif 'pn=1' in url:
+                return MockResponse(page1)
+            raise ValueError(f'Unexpected URL {url}')
+
+        with patch('requests.get', side_effect=mock_get):
+            links = pdx_scraper.fetch_inventory_links()
+
+        expected_links = [
+            'https://www.pdxmotors.com/inventory/ford/f150/111/',
+            'https://www.pdxmotors.com/inventory/tesla/model-x/222/',
+            'https://www.pdxmotors.com/inventory/mercedes-benz/g-class/333/',
+        ]
+        self.assertEqual(links, expected_links)
 
 
 if __name__ == '__main__':
