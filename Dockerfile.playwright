@@ -1,0 +1,11 @@
+FROM mcr.microsoft.com/playwright/python:v1.52.0-jammy
+
+WORKDIR /app
+
+COPY requirements.txt requirements.playwright.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements.playwright.txt \
+    && playwright install --with-deps
+
+COPY . .
+
+CMD ["python", "scrape_inventory_playwright.py"]
