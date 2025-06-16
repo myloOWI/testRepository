@@ -37,7 +37,7 @@ A `Dockerfile` is provided for running the scraper in a container. Build the ima
 docker build -t pdx-scraper:latest .
 ```
 
-Run the tests inside the image:
+Running the image will automatically download the full inventory from the PDX Motors website and save it to `inventory.json` in the working directory:
 
 ```bash
 docker run --rm pdx-scraper:latest
