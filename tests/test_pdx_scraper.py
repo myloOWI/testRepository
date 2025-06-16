@@ -19,6 +19,21 @@ class MockResponse:
         pass
 
 
+def load_inventory_html():
+    path = Path(__file__).parent / 'sample_inventory.html'
+    return path.read_text()
+
+
+def load_inventory_page0():
+    path = Path(__file__).parent / 'sample_inventory_page0.jsonp'
+    return path.read_text()
+
+
+def load_inventory_page1():
+    path = Path(__file__).parent / 'sample_inventory_page1.jsonp'
+    return path.read_text()
+
+
 class PdxScraperTests(unittest.TestCase):
     def test_fetch_car_details(self):
         html = load_sample_html()
@@ -37,6 +52,30 @@ class PdxScraperTests(unittest.TestCase):
             'description': 'This Ferrari is awesome',
         }
         self.assertEqual(data, expected)
+
+    def test_fetch_inventory_links(self):
+        html = load_inventory_html()
+        page0 = load_inventory_page0()
+        page1 = load_inventory_page1()
+
+        def mock_get(url, headers=None, timeout=10):
+            if url == 'https://www.pdxmotors.com/inventory/':
+                return MockResponse(html)
+            elif 'pn=0' in url:
+                return MockResponse(page0)
+            elif 'pn=1' in url:
+                return MockResponse(page1)
+            raise ValueError(f'Unexpected URL {url}')
+
+        with patch('requests.get', side_effect=mock_get):
+            links = pdx_scraper.fetch_inventory_links()
+
+        expected_links = [
+            'https://www.pdxmotors.com/inventory/ford/f150/111/',
+            'https://www.pdxmotors.com/inventory/tesla/model-x/222/',
+            'https://www.pdxmotors.com/inventory/mercedes-benz/g-class/333/',
+        ]
+        self.assertEqual(links, expected_links)
 
 
 if __name__ == '__main__':
