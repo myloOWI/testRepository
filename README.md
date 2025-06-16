@@ -28,3 +28,17 @@ Run the test suite:
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+## Docker
+
+A `Dockerfile` is provided for running the scraper in a container. Build the image with:
+
+```bash
+docker build -t pdx-scraper:latest .
+```
+
+Run the tests inside the image:
+
+```bash
+docker run --rm pdx-scraper:latest
+```
